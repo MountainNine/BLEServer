@@ -12,6 +12,7 @@ import android.bluetooth.le.AdvertiseData
 import android.bluetooth.le.AdvertiseSettings
 import android.bluetooth.le.BluetoothLeAdvertiser
 import android.content.Context
+import android.os.ParcelUuid
 import androidx.annotation.RequiresPermission
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,9 +22,9 @@ import java.util.UUID
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
-const val CTF_SERVICE_UUID = "8c380000-10bd-4fdb-ba21-1922d6cf860d"
-const val PASSWORD_CHARACTERISTIC_UUID = "8c380001-10bd-4fdb-ba21-1922d6cf860d"
-const val NAME_CHARACTERISTIC_UUID = "8c380002-10bd-4fdb-ba21-1922d6cf860d"
+val CTF_SERVICE_UUID: UUID = UUID.fromString("E20A39F4-73F5-4BC4-A12F-17D1AD07A961")
+val PASSWORD_CHARACTERISTIC_UUID: UUID = UUID.fromString("8c380001-10bd-4fdb-ba21-1922d6cf860d")
+val NAME_CHARACTERISTIC_UUID: UUID = UUID.fromString("08590F7E-DB05-467E-8757-72F6FAEB13D4")
 
 //These fields are marked as API >= 31 in the Manifest class, so we can't use those without warning.
 //So we create our own, which prevents over-suppression of the Linter
@@ -35,9 +36,9 @@ class BluetoothCTFServer(private val context: Context) {
             as? BluetoothManager
         ?: throw Exception("This device doesn't support Bluetooth")
 
-    private val serviceUuid = UUID.fromString(CTF_SERVICE_UUID)
-    private val passwordCharUuid = UUID.fromString(PASSWORD_CHARACTERISTIC_UUID)
-    private val nameCharUuid = UUID.fromString(NAME_CHARACTERISTIC_UUID)
+    private val serviceUuid = CTF_SERVICE_UUID
+    private val passwordCharUuid = PASSWORD_CHARACTERISTIC_UUID
+    private val nameCharUuid = NAME_CHARACTERISTIC_UUID
 
     private var server: BluetoothGattServer? = null
     private var ctfService: BluetoothGattService? = null
@@ -89,7 +90,7 @@ class BluetoothCTFServer(private val context: Context) {
             .build()
 
         val data = AdvertiseData.Builder()
-            .setIncludeDeviceName(true)
+            .addServiceUuid(ParcelUuid(serviceUuid))
             .setIncludeTxPowerLevel(false)
 //            .addServiceUuid(ParcelUuid(serviceUuid))
             .build()
