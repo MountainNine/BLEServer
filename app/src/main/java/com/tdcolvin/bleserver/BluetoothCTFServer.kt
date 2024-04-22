@@ -32,6 +32,74 @@ const val PERMISSION_BLUETOOTH_ADVERTISE = "android.permission.BLUETOOTH_ADVERTI
 const val PERMISSION_BLUETOOTH_CONNECT = "android.permission.BLUETOOTH_CONNECT"
 
 class BluetoothCTFServer(private val context: Context) {
+    val jsonString = """
+        {
+            "presentation": {
+                "type": "verifiablePresentation",
+                "id": "did:waff:W6hLpTWEbsUW/0Hs6NglWF3g",
+                "credential": {
+                    "type": "verifiableCredential",
+                    "issuer": {
+                        "name": "한양대학교",
+                        "id": "did:waff:TCSw+75WvYTptwNP8q5GxSjQ"
+                    },
+                    "issuanceDate": "1705900000",
+                    "expirationDate": "1706900000",
+                    "credentialSubjects": {
+                        "id": "did:waff:W6hLpTWEbsUW/0Hs6NglWF3g",
+                        "name": "전효진",
+                        "subjects": [{
+                            "document": {
+                                "name": "학생증",
+                                "contents": [
+                                    { "key": "이름", "value": "전효진" },
+                                    { "key": "학번", "value": "2018380355" },
+                                    { "key": "학과", "value": "컴퓨터소프트웨어학과" },
+                                    { "key": "입학년월", "value": "2018.03" }
+                                ]
+                            }
+                        }]
+                    },
+                    "proof": {
+                        "signatureAlgorithm": "secp256k1",
+                        "created": "1705900000",
+                        "creatorID": "did:waff:TCSw+75WvYTptwNP8q5GxSjQ",
+                        "jws": "MEUCIQCKWDIAJQbnt/t42k0NHfJu6xpEX5QwDbNaIUBgPT1oCgIgE9rZQqPRW+uIjkXltzbMOfZqib43IxKMCmJ0WjDTXOo=" 
+                    },
+                    "verifier": {
+                        "name": "김현아",
+                        "id": "did:waff:Xz02rvh0jnQMa0IQEywY0LSQ"
+                    }
+                },
+                "proof": {
+                    "signatureAlgorithm": "secp256k1",
+                    "created": "1706000000",
+                    "creatorID": "did:waff:W6hLpTWEbsUW/0Hs6NglWF3g",
+                    "jws": "MEQCIBrDHgn7j+XQkQZom2NywbA/aNJxswk2zjwb/7eMrYEaAiBjN45eLYO7jx69IaceDzhTWEF+kx//URLDY/GAnEmvvA==" 
+                }
+                
+            },
+
+              "vc_certificaiton ": {
+                "certificationName": "한양대학교의 인증서",
+                "signatureAlgorithm": "secp256k1",
+                "id": "did:waff:TCSw+75WvYTptwNP8q5GxSjQ",
+                "name": "한양대학교",
+                "pubKey": "-----BEGIN PUBLIC KEY-----\nMFYwEAYHKoZIzj0CAQYFK4EEAAoDQgAEomGvR5L0DkjzBoqVs8ObPXoJYERnn/Ktmjpd0Dcc9LxUd4aCnHVB5UuRV4xDqUTCSw+75WvYTptwNP8q5GxSjQ==\n-----END PUBLIC KEY-----",
+                "created": "1705923040"
+            },
+
+            "vp_certification": {
+                "certificationName": "전효진의 인증서",
+                "signatureAlgorithm": "secp256k1",
+                "id": "did:waff:W6hLpTWEbsUW/0Hs6NglWF3g",
+                "name": "전효진",
+                "pubKey": "-----BEGIN PUBLIC KEY-----\nMFYwEAYHKoZIzj0CAQYFK4EEAAoDQgAESnJ+xVVzWWs0zIJiUJEsPvvnZFBLdCRPAo1eNcP0ouE5gQIhL1Q/ykhLSQHozSW6hLpTWEbsUW/0Hs6NglWF3g==\n-----END PUBLIC KEY-----",
+                "created": "1705923050"
+            }
+        }
+    """.trimIndent().replace(" ", "").replace("\n", "")
+
     private val bluetooth = context.getSystemService(Context.BLUETOOTH_SERVICE)
             as? BluetoothManager
         ?: throw Exception("This device doesn't support Bluetooth")
@@ -96,7 +164,7 @@ class BluetoothCTFServer(private val context: Context) {
             .build()
 
         advertiseCallback = suspendCoroutine { continuation ->
-            val advertiseCallback = object: AdvertiseCallback() {
+            val advertiseCallback = object : AdvertiseCallback() {
                 override fun onStartSuccess(settingsInEffect: AdvertiseSettings?) {
                     super.onStartSuccess(settingsInEffect)
                     continuation.resume(this)
@@ -125,7 +193,7 @@ class BluetoothCTFServer(private val context: Context) {
 
     @RequiresPermission(PERMISSION_BLUETOOTH_CONNECT)
     private fun startHandlingIncomingConnections() {
-        server = bluetooth.openGattServer(context, object: BluetoothGattServerCallback() {
+        server = bluetooth.openGattServer(context, object : BluetoothGattServerCallback() {
             override fun onServiceAdded(status: Int, service: BluetoothGattService?) {
                 super.onServiceAdded(status, service)
                 isServerListening.value = true
@@ -139,7 +207,16 @@ class BluetoothCTFServer(private val context: Context) {
                 characteristic: BluetoothGattCharacteristic?
             ) {
                 super.onCharacteristicReadRequest(device, requestId, offset, characteristic)
-                server?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, "HELLO".encodeToByteArray())
+                val textList = divideText(jsonString)
+                for(text in textList) {
+                    server?.sendResponse(
+                        device,
+                        requestId,
+                        BluetoothGatt.GATT_SUCCESS,
+                        offset,
+                        text.encodeToByteArray()
+                    )
+                }
             }
 
             @RequiresPermission(PERMISSION_BLUETOOTH_CONNECT)
@@ -161,18 +238,22 @@ class BluetoothCTFServer(private val context: Context) {
                     offset,
                     value
                 )
-                super.onCharacteristicWriteRequest(device, requestId, characteristic, preparedWrite, responseNeeded, offset, value)
 
-                if(preparedWrite) {
+                if (preparedWrite) {
                     val bytes = preparedWrites.getOrDefault(requestId, byteArrayOf())
                     preparedWrites[requestId] = bytes.plus(value)
-                }
-                else {
+                } else {
                     namesReceived.update { it.plus(String(value)) }
                 }
 
-                if(responseNeeded) {
-                    server?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, 0, byteArrayOf())
+                if (responseNeeded) {
+                    server?.sendResponse(
+                        device,
+                        requestId,
+                        BluetoothGatt.GATT_SUCCESS,
+                        0,
+                        byteArrayOf()
+                    )
                 }
             }
 
@@ -214,6 +295,14 @@ class BluetoothCTFServer(private val context: Context) {
         ctfService?.let {
             server?.removeService(it)
             ctfService = null
+        }
+    }
+
+    private fun divideText(text: String): List<String> {
+        val list = text.chunked(500)
+        return list.mapIndexed { index, str ->
+            return@mapIndexed if (index == list.size - 1) "$index/${str}EOM"
+            else "$index/$str"
         }
     }
 }
