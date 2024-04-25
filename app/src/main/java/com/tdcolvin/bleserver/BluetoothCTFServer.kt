@@ -13,6 +13,7 @@ import android.bluetooth.le.AdvertiseSettings
 import android.bluetooth.le.BluetoothLeAdvertiser
 import android.content.Context
 import android.os.ParcelUuid
+import android.util.Log
 import androidx.annotation.RequiresPermission
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,8 +24,8 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
 val CTF_SERVICE_UUID: UUID = UUID.fromString("E20A39F4-73F5-4BC4-A12F-17D1AD07A961")
-val PASSWORD_CHARACTERISTIC_UUID: UUID = UUID.fromString("8c380001-10bd-4fdb-ba21-1922d6cf860d")
-val NAME_CHARACTERISTIC_UUID: UUID = UUID.fromString("08590F7E-DB05-467E-8757-72F6FAEB13D4")
+val READ_CHARACTERISTIC_UUID: UUID = UUID.fromString("8c380001-10bd-4fdb-ba21-1922d6cf860d")
+val WRITE_CHARACTERISTIC_UUID: UUID = UUID.fromString("08590F7E-DB05-467E-8757-72F6FAEB13D4")
 
 //These fields are marked as API >= 31 in the Manifest class, so we can't use those without warning.
 //So we create our own, which prevents over-suppression of the Linter
@@ -105,8 +106,8 @@ class BluetoothCTFServer(private val context: Context) {
         ?: throw Exception("This device doesn't support Bluetooth")
 
     private val serviceUuid = CTF_SERVICE_UUID
-    private val passwordCharUuid = PASSWORD_CHARACTERISTIC_UUID
-    private val nameCharUuid = NAME_CHARACTERISTIC_UUID
+    private val readCharUuid = READ_CHARACTERISTIC_UUID
+    private val writeCharUuid = WRITE_CHARACTERISTIC_UUID
 
     private var server: BluetoothGattServer? = null
     private var ctfService: BluetoothGattService? = null
@@ -199,6 +200,12 @@ class BluetoothCTFServer(private val context: Context) {
                 isServerListening.value = true
             }
 
+            override fun onMtuChanged(device: BluetoothDevice?, mtu: Int) {
+                super.onMtuChanged(device, mtu)
+                Log.i("MTU", mtu.toString())
+            }
+
+
             @RequiresPermission(PERMISSION_BLUETOOTH_CONNECT)
             override fun onCharacteristicReadRequest(
                 device: BluetoothDevice?,
@@ -273,16 +280,17 @@ class BluetoothCTFServer(private val context: Context) {
         val service = BluetoothGattService(serviceUuid, BluetoothGattService.SERVICE_TYPE_PRIMARY)
 
         val passwordCharacteristic = BluetoothGattCharacteristic(
-            passwordCharUuid,
-            BluetoothGattCharacteristic.PROPERTY_READ,
+            readCharUuid,
+            (BluetoothGattCharacteristic.PROPERTY_READ or BluetoothGattCharacteristic.PROPERTY_NOTIFY),
             BluetoothGattCharacteristic.PERMISSION_READ
         )
 
         val nameCharacteristic = BluetoothGattCharacteristic(
-            nameCharUuid,
-            BluetoothGattCharacteristic.PROPERTY_WRITE,
+            writeCharUuid,
+            BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE or BluetoothGattCharacteristic.PROPERTY_NOTIFY,
             BluetoothGattCharacteristic.PERMISSION_WRITE
         )
+
 
         service.addCharacteristic(passwordCharacteristic)
         service.addCharacteristic(nameCharacteristic)
